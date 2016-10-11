@@ -372,7 +372,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
     [super prepareLayout];
 
     if (self.needsToPopulateAttributesForAllSections) {
-        [self prepareSectionLayoutForSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.collectionView.numberOfSections)]];
+        [self prepareSectionLayoutForSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.collectionView.numberOfSections)] initialPrepare:YES];
         self.needsToPopulateAttributesForAllSections = NO;
     }
 
@@ -437,8 +437,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 
 #pragma mark - Preparing Layout
 
-- (void)prepareSectionLayoutForSections:(NSIndexSet *)sectionIndexes
-{
+- (void)prepareSectionLayoutForSections:(NSIndexSet *)sectionIndexes initialPrepare:(BOOL)initial {
     if (self.collectionView.numberOfSections == 0) {
         return;
     }
@@ -451,10 +450,10 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 
     [self prepareCurrentIndicatorAttributes];
 
-    [self prepareVerticalGridlineAttributes];
+    [self prepareVerticalGridlineAttributesIsInitialPrepare:initial];
 
     [sectionIndexes enumerateIndexesUsingBlock:^(NSUInteger section, BOOL *stop) {
-        [self prepareSectionAttributes:section needsToPopulateItemAttributes:needsToPopulateItemAttributes];
+        [self prepareSectionAttributes:section needsToPopulateItemAttributes:needsToPopulateItemAttributes initialPrepare:initial];
 
         if (needsToPopulateHorizontalGridlineAttributes) {
             [self prepareHorizontalGridlineAttributesForSection:section];
@@ -462,19 +461,18 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
     }];
 }
 
-- (void)prepareFloatingItemAttributesOverlayForSection:(NSUInteger)section sectionFrame:(CGRect)rect
-{
+- (void)prepareFloatingItemAttributesOverlayForSection:(NSUInteger)section sectionFrame:(CGRect)rect initialPrepare:(BOOL)initial {
     CGFloat floatingGridMinX = fmaxf(self.collectionView.contentOffset.x, 0.0) + self.sectionHeaderWidth + self.floatingItemOffsetFromSection;
 
     for (NSUInteger item = 0; item < [self.collectionView numberOfItemsInSection:section]; item++) {
 
         NSIndexPath *floatingItemIndexPath = [NSIndexPath indexPathForRow:item inSection:section];
         
-        NSDate *itemEndTime = [self endDateForIndexPath:floatingItemIndexPath];
-        
-        if ([itemEndTime ins_isLaterThan:[self latestDate]] || [itemEndTime ins_isEarlierThan:[self earliestDate]]) {
-            continue;
-        }
+//        NSDate *itemEndTime = [self endDateForIndexPath:floatingItemIndexPath];
+//        
+//        if ([itemEndTime ins_isLaterThan:[self latestDate]] || [itemEndTime ins_isEarlierThan:[self earliestDate]]) {
+//            continue;
+//        }
         
         UICollectionViewLayoutAttributes *itemAttributes = [self.itemAttributes objectForKey:floatingItemIndexPath];
         CGRect itemAttributesFrame = itemAttributes.frame;
@@ -530,7 +528,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
     }
 }
 
-- (void)prepareSectionAttributes:(NSUInteger)section needsToPopulateItemAttributes:(BOOL)needsToPopulateItemAttributes
+- (void)prepareSectionAttributes:(NSUInteger)section needsToPopulateItemAttributes:(BOOL)needsToPopulateItemAttributes initialPrepare:(BOOL)initial
 {
     CGFloat sectionMinY = self.hourHeaderHeight + self.contentMargin.top;
 
@@ -546,7 +544,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
         [self prepareItemAttributesForSection:section sectionFrame:sectionAttributes.frame];
     }
     if (self.shouldUseFloatingItemOverlay) {
-        [self prepareFloatingItemAttributesOverlayForSection:section sectionFrame:sectionAttributes.frame];
+        [self prepareFloatingItemAttributesOverlayForSection:section sectionFrame:sectionAttributes.frame initialPrepare:initial];
     }
 }
 
@@ -571,8 +569,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
     horizontalGridlineAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHorizontalGridline];
 }
 
-- (void)prepareVerticalGridlineAttributes
-{
+- (void)prepareVerticalGridlineAttributesIsInitialPrepare:(BOOL)initial {
     CGFloat gridMinX = [self minimumGridX];
     CGFloat gridMaxWidth = [self maximumSectionWidth] - gridMinX;
     CGFloat hourWidth = [self hourWidth];
@@ -587,47 +584,61 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 
     NSUInteger verticalGridlineIndex = 0;
     for (CGFloat hourX = startDatePosition; hourX <= gridMaxWidth; hourX += hourWidth) {
-        NSIndexPath *verticalGridlineIndexPath = [NSIndexPath indexPathForItem:verticalGridlineIndex inSection:0];
-        UICollectionViewLayoutAttributes *verticalGridlineAttributes = [self layoutAttributesForDecorationViewAtIndexPath:verticalGridlineIndexPath ofKind:INSEPGLayoutElementKindVerticalGridline withItemCache:self.verticalGridlineAttributes];
-
-        verticalGridlineAttributes.frame = CGRectMake(hourX, currentTimeVerticalGridlineMinY, self.verticalGridlineWidth, gridHeight);
-        verticalGridlineAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindVerticalGridline];
+        if (self.registeredDecorationClasses[INSEPGLayoutElementKindVerticalGridline]) {
+            NSIndexPath *verticalGridlineIndexPath = [NSIndexPath indexPathForItem:verticalGridlineIndex inSection:0];
+            UICollectionViewLayoutAttributes *verticalGridlineAttributes = [self layoutAttributesForDecorationViewAtIndexPath:verticalGridlineIndexPath ofKind:INSEPGLayoutElementKindVerticalGridline withItemCache:self.verticalGridlineAttributes];
+            
+            verticalGridlineAttributes.frame = CGRectMake(hourX, currentTimeVerticalGridlineMinY, self.verticalGridlineWidth, gridHeight);
+            verticalGridlineAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindVerticalGridline];
+        }
 
         NSIndexPath *hourHeaderIndexPath = [NSIndexPath indexPathForItem:verticalGridlineIndex inSection:0];
 
-        CGFloat hourTimeInterval = 3600;
-        if (![self.cachedHours objectForKey:hourHeaderIndexPath]) {
+        if (initial) {
+            CGFloat hourTimeInterval = 3600;
             [self.cachedHours setObject:[startDate dateByAddingTimeInterval: hourTimeInterval * verticalGridlineIndex] forKey:hourHeaderIndexPath];
         }
 
         UICollectionViewLayoutAttributes *hourHeaderAttributes = [self layoutAttributesForSupplementaryViewAtIndexPath:hourHeaderIndexPath ofKind:INSEPGLayoutElementKindHourHeader withItemCache:self.hourHeaderAttributes];
-        CGFloat hourHeaderMinX = hourX - nearbyintf(self.hourWidth / 2.0);
-
-        hourHeaderAttributes.frame = (CGRect){ {hourHeaderMinX, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
-        hourHeaderAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHourHeader floating:YES];
+        
+        if (initial) {
+            CGFloat hourHeaderMinX = hourX - nearbyintf(self.hourWidth / 2.0);
+            
+            hourHeaderAttributes.frame = (CGRect){ {hourHeaderMinX, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
+            hourHeaderAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHourHeader floating:YES];
+        } else {
+            hourHeaderAttributes.frame = (CGRect){ {hourHeaderAttributes.frame.origin.x, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
+        }
 
         verticalGridlineIndex++;
     }
 
     NSInteger verticalHalfHourGridlineIndex = 0;
     for (CGFloat halfHourX = startDatePosition + hourWidth/2; halfHourX <= gridMaxWidth + hourWidth/2; halfHourX += hourWidth) {
-        NSIndexPath *verticalHalfHourGridlineIndexPath = [NSIndexPath indexPathForItem:verticalHalfHourGridlineIndex inSection:0];
-        UICollectionViewLayoutAttributes *verticalHalfHourGridlineAttributes = [self layoutAttributesForDecorationViewAtIndexPath:verticalHalfHourGridlineIndexPath ofKind:INSEPGLayoutElementKindHalfHourVerticalGridline withItemCache:self.verticalHalfHourGridlineAttributes];
-
-        verticalHalfHourGridlineAttributes.frame = CGRectMake(halfHourX, currentTimeVerticalGridlineMinY, self.verticalGridlineWidth, gridHeight);
-        verticalHalfHourGridlineAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHalfHourVerticalGridline];
+        if (self.registeredDecorationClasses[INSEPGLayoutElementKindHalfHourVerticalGridline]) {
+            NSIndexPath *verticalHalfHourGridlineIndexPath = [NSIndexPath indexPathForItem:verticalHalfHourGridlineIndex inSection:0];
+            UICollectionViewLayoutAttributes *verticalHalfHourGridlineAttributes = [self layoutAttributesForDecorationViewAtIndexPath:verticalHalfHourGridlineIndexPath ofKind:INSEPGLayoutElementKindHalfHourVerticalGridline withItemCache:self.verticalHalfHourGridlineAttributes];
+            
+            verticalHalfHourGridlineAttributes.frame = CGRectMake(halfHourX, currentTimeVerticalGridlineMinY, self.verticalGridlineWidth, gridHeight);
+            verticalHalfHourGridlineAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHalfHourVerticalGridline];
+        }
 
         NSIndexPath *halfHourHeaderIndexPath = [NSIndexPath indexPathForItem:verticalHalfHourGridlineIndex inSection:0];
 
-        CGFloat hourTimeInterval = 3600;
-        if (![self.cachedHalfHours objectForKey:halfHourHeaderIndexPath]) {
+        if (initial) {
+            CGFloat hourTimeInterval = 3600;
             [self.cachedHalfHours setObject:[startDate dateByAddingTimeInterval:hourTimeInterval * verticalHalfHourGridlineIndex + hourTimeInterval/2] forKey:halfHourHeaderIndexPath];
         }
 
         UICollectionViewLayoutAttributes *halfHourHeaderAttributes = [self layoutAttributesForSupplementaryViewAtIndexPath:halfHourHeaderIndexPath ofKind:INSEPGLayoutElementKindHalfHourHeader withItemCache:self.halfHourHeaderAttributes];
-        CGFloat hourHeaderMinX = halfHourX - nearbyintf(self.hourWidth / 2.0);
-        halfHourHeaderAttributes.frame = (CGRect){ {hourHeaderMinX, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
-        halfHourHeaderAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHalfHourHeader floating:YES];
+        
+        if (initial) {
+            CGFloat hourHeaderMinX = halfHourX - nearbyintf(self.hourWidth / 2.0);
+            halfHourHeaderAttributes.frame = (CGRect){ {hourHeaderMinX, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
+            halfHourHeaderAttributes.zIndex = [self zIndexForElementKind:INSEPGLayoutElementKindHalfHourHeader floating:YES];
+        } else {
+            halfHourHeaderAttributes.frame = (CGRect){ {halfHourHeaderAttributes.frame.origin.x, hourMinY}, {self.hourWidth, self.hourHeaderHeight} };
+        }
 
         verticalHalfHourGridlineIndex++;
     }
@@ -767,7 +778,7 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
     }];
 
     // Update layout for only the visible sections
-    [self prepareSectionLayoutForSections:visibleSections];
+    [self prepareSectionLayoutForSections:visibleSections initialPrepare:NO];
 
     // Return the visible attributes (rect intersection)
     return [self.allAttributes filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(UICollectionViewLayoutAttributes *layoutAttributes, NSDictionary *bindings) {
@@ -966,8 +977,9 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 {
     NSIndexPath *indexPathKey = [self keyForIndexPath:indexPath];
 
-    if ([self.cachedStartTimeDate objectForKey:indexPathKey]) {
-        return [self.cachedStartTimeDate objectForKey:indexPathKey];
+    NSDate *cachedStartDate = [self.cachedStartTimeDate objectForKey:indexPathKey];
+    if (cachedStartDate) {
+        return cachedStartDate;
     }
 
     NSDate *date = [self.dataSource collectionView:self.collectionView layout:self startTimeForItemAtIndexPath:indexPathKey];
@@ -980,8 +992,9 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 {
     NSIndexPath *indexPathKey = [self keyForIndexPath:indexPath];
 
-    if ([self.cachedEndTimeDate objectForKey:indexPathKey]) {
-        return [self.cachedEndTimeDate objectForKey:indexPathKey];
+    NSDate *cachedEndDate = [self.cachedEndTimeDate objectForKey:indexPathKey];
+    if (cachedEndDate) {
+        return cachedEndDate;
     }
 
     NSDate *date = [self.dataSource collectionView:self.collectionView layout:self endTimeForItemAtIndexPath:indexPathKey];
@@ -1019,8 +1032,9 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 {
     NSIndexPath *indexPathKey = [self keyForIndexPath:indexPath];
 
-    if ([self.cachedFloatingItemsOverlaySize objectForKey:indexPathKey]) {
-        return [[self.cachedFloatingItemsOverlaySize objectForKey:indexPathKey] CGSizeValue];
+    NSValue *cachedSizeValue = [self.cachedFloatingItemsOverlaySize objectForKey:indexPathKey];
+    if (cachedSizeValue) {
+        return cachedSizeValue.CGSizeValue;
     }
     CGSize floatingItemSize = self.floatingItemOverlaySize;
     if ([self.delegate respondsToSelector:@selector(collectionView:layout:sizeForFloatingItemOverlayAtIndexPath:)]) {
