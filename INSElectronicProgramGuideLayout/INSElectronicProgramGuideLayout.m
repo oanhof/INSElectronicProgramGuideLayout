@@ -977,14 +977,14 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 {
     NSIndexPath *indexPathKey = [self keyForIndexPath:indexPath];
 
-    NSDate *cachedStartDate = [self.cachedStartTimeDate objectForKey:indexPathKey];
-    if (cachedStartDate) {
-        return cachedStartDate;
-    }
+//    NSDate *cachedStartDate = [self.cachedStartTimeDate objectForKey:indexPathKey];
+//    if (cachedStartDate) {
+//        return cachedStartDate;
+//    }
 
     NSDate *date = [self.dataSource collectionView:self.collectionView layout:self startTimeForItemAtIndexPath:indexPathKey];
 
-    [self.cachedStartTimeDate setObject:date forKey:indexPathKey];
+//    [self.cachedStartTimeDate setObject:date forKey:indexPathKey];
     return date;
 }
 
@@ -992,14 +992,14 @@ NSUInteger const INSEPGLayoutMinBackgroundZ = 0.0;
 {
     NSIndexPath *indexPathKey = [self keyForIndexPath:indexPath];
 
-    NSDate *cachedEndDate = [self.cachedEndTimeDate objectForKey:indexPathKey];
-    if (cachedEndDate) {
-        return cachedEndDate;
-    }
+//    NSDate *cachedEndDate = [self.cachedEndTimeDate objectForKey:indexPathKey];
+//    if (cachedEndDate) {
+//        return cachedEndDate;
+//    }
 
     NSDate *date = [self.dataSource collectionView:self.collectionView layout:self endTimeForItemAtIndexPath:indexPathKey];
 
-    [self.cachedEndTimeDate setObject:date forKey:indexPathKey];
+//    [self.cachedEndTimeDate setObject:date forKey:indexPathKey];
     return date;
 }
 
